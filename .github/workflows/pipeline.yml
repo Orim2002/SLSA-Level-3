@@ -6,8 +6,10 @@ on:
       - master
 
 jobs:
-  security-pipeline:
-    name: Securiry Pipeline
+  docker-build-push:
+    name: Docker build and push
+    outputs:
+      tag: ${{steps.vars.outputs.tag}}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -31,4 +33,12 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/sample-app:${{ steps.vars.outputs.tag }}
-
+  create-sbom:
+    name: Run Syft
+    needs: docker-build-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Syft
+        run: curl -sSfL https://get.anchore.io/syft | sudo sh -s -- -b /usr/local/bin
+      - name: Create SBOM
+        run: syft ${{ secrets.DOCKERHUB_USERNAME }}/sample-app:${{ needs.docker-build-push.outputs.tag }} -o cyclonedx-json > sbom.json
