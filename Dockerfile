@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM gcr.io/distroless/python3-debian12:nonroot
 WORKDIR /app
 COPY app.py .
 CMD ["python", "app.py"]
