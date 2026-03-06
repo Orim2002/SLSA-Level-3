@@ -59,7 +59,7 @@ jobs:
         with:
           name: SBOM
       - name: Scan SBOM
-        run: grype sbom:./sbom.json -o json > grype-sbom-scan.json
+        run: grype sbom:./sbom.json --fail-on high -o json > grype-sbom-scan.json
       - name: Upload scan results as artifact
         uses: actions/upload-artifact@v4
         with:
