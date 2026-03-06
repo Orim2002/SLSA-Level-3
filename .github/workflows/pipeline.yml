@@ -1,0 +1,16 @@
+name: SLSA Pipeline
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  security-pipeline:
+    name: Securiry Pipeline
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Verify commit signature
+        run: git log --show-signature -1 | grep "Good signature"
