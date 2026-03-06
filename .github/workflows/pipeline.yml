@@ -42,3 +42,26 @@ jobs:
         run: curl -sSfL https://get.anchore.io/syft | sudo sh -s -- -b /usr/local/bin
       - name: Create SBOM
         run: syft ${{ secrets.DOCKERHUB_USERNAME }}/sample-app:${{ needs.docker-build-push.outputs.tag }} -o cyclonedx-json > sbom.json
+      - name: Upload SBOM arifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SBOM
+          path: sbom.json
+  scan-image:
+    name: Scan image with Grype
+    needs: create-sbom
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Grype
+        run: curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+      - name: Download SBOM artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: SBOM
+      - name: Scan SBOM
+        run: grype sbom:./sbom.json -o json > grype-sbom-scan.json
+      - name: Upload scan results as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Report
+          path: grype-sbom-scan.json
