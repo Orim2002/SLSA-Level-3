@@ -12,5 +12,7 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      - name: Import GPG public key
+        run: echo "${{secrets.GPG_PUBLIC_KEY}}" | gpg --import
       - name: Verify commit signature
         run: git log --show-signature -1 | grep "Good signature"
