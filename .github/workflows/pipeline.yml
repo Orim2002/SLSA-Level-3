@@ -61,6 +61,7 @@ jobs:
       - name: Scan SBOM
         run: grype sbom:./sbom.json --fail-on high -o json > grype-sbom-scan.json
       - name: Upload scan results as artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: Report
