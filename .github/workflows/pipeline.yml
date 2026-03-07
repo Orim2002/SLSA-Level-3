@@ -13,6 +13,7 @@ jobs:
     name: Docker build and push to GHCR
     outputs:
       tag: ${{steps.vars.outputs.tag}}
+      digest: ${{steps.build.outputs.digest}}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -33,6 +34,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push Docker image
+        id: build
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -126,4 +128,4 @@ jobs:
         env:
           COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
-        run: cosign sign --yes --key env://COSIGN_PRIVATE_KEY ${{ secrets.DOCKERHUB_USERNAME }}/sample-app:${{ needs.docker-build-push-ghcr.outputs.tag }}
+        run: cosign sign --yes --key env://COSIGN_PRIVATE_KEY ${{ secrets.DOCKERHUB_USERNAME }}/sample-app${{ needs.docker-build-push-ghcr.outputs.digest }}
