@@ -128,7 +128,9 @@ jobs:
         run: cosign sign --yes --key env://COSIGN_PRIVATE_KEY ${{ secrets.DOCKERHUB_USERNAME }}/sample-app@${{ needs.docker-build-push.outputs.digest }}
   generate-provenance:
     name: Generate provenance
-    needs: docker-build-push
+    needs: 
+      - docker-build-push
+      - cosign-sign-image
     permissions:
       actions: read
       id-token: write
