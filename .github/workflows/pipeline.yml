@@ -157,7 +157,7 @@ jobs:
           echo "https://Orim2002:${{secrets.HELM_REPO_TOKEN}}@github.com" > ~/.git-credentials
           git clone https://github.com/Orim2002/SLSA-Level-3-Sampleapp-HelmChart.git helm-repo
           cd helm-repo
-          sed -i "s/tag: .*/tag: \"${{ needs.docker-build-push.outputs.tag }}\"/g" values.yaml
+          sed -i "s/tag: .*/tag: \"${{ needs.docker-build-push.outputs.tag }}@${{ needs.docker-build-push.outputs.digest }}\"/g" values.yaml
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
           git add values.yaml
