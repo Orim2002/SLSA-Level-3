@@ -152,10 +152,13 @@ jobs:
       - generate-provenance
     steps:
       - name: Update Helm values.yaml
+        uses: actions/checkout@v4
+        with:
+          repository: Orim2002/SLSA-Level-3-Sampleapp-HelmChart
+          ssh-key: ${{ secrets.HELM_DEPLOY_KEY }}
+          path: helm-repo
+      - name: Push changes
         run: |
-          git config --global credential.helper store
-          echo "https://Orim2002:${{secrets.HELM_REPO_TOKEN}}@github.com" > ~/.git-credentials
-          git clone https://github.com/Orim2002/SLSA-Level-3-Sampleapp-HelmChart.git helm-repo
           cd helm-repo
           sed -i "s/tag: .*/tag: \"${{ needs.docker-build-push.outputs.tag }}@${{ needs.docker-build-push.outputs.digest }}\"/g" values.yaml
           git config user.name "GitHub Actions Bot"
