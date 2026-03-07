@@ -58,10 +58,17 @@ After passing all scans, the image is signed using Cosign with a project-specifi
 SLSA provenance is generated using the official `slsa-framework/slsa-github-generator`. This attestation cryptographically links the final image back to the exact source commit and build environment, satisfying SLSA Level 3 requirements.
 
 ### Kyverno Policy Enforcement
-A `ClusterPolicy` blocks any pod from running in the cluster unless its image has a valid Cosign signature matching the project's public key. System namespaces (`kyverno`, `argocd`) are excluded.
+A `ClusterPolicy` enforces image integrity across the entire cluster using three layered rules:
+
+- **Own images** — verified against the project's Cosign public key
+- **ArgoCD images** — verified keyless via Sigstore against the official `argoproj/argo-cd` GitHub Actions identity
+- **Kyverno images** — verified keyless via Sigstore against the official `kyverno/kyverno` GitHub Actions identity
+- **Everything else** — denied outright (catch-all block rule)
+
+No namespace is fully excluded from enforcement. `kube-system` is excluded only from the catch-all deny rule, as Kubernetes internals are not subject to Cosign signing.
 
 ### GitOps Deployment (ArgoCD)
-The pipeline automatically updates the Helm chart's `values.yaml` with the new image tag after every successful build. ArgoCD detects the change and syncs the cluster — no manual deployments.
+The pipeline automatically updates the Helm chart's `values.yaml` with the new image tag after every successful build. ArgoCD detects the change and syncs the cluster — no manual deployments. The Helm chart repo is updated via an SSH deploy key (not a PAT), scoped to write access on that repo only.
 
 ---
 
@@ -75,7 +82,7 @@ The pipeline automatically updates the Helm chart's `values.yaml` with the new i
 | `docker-build-push` | Promotes image from GHCR to DockerHub |
 | `cosign-sign-image` | Signs image by digest using Cosign |
 | `generate-provenance` | Generates SLSA Level 3 provenance attestation |
-| `update-helmchart` | Updates Helm chart `values.yaml` with new image tag |
+| `update-helmchart` | Updates Helm chart `values.yaml` with new image tag via SSH deploy key |
 
 ---
 
@@ -131,23 +138,32 @@ SLSA-Level-3-Sampleapp-HelmChart/   # Helm chart repo (GitOps source)
 | `COSIGN_PRIVATE_KEY` | Cosign private key for image signing |
 | `COSIGN_PASSWORD` | Cosign key passphrase |
 | `COSIGN_PUBLIC_KEY` | Cosign public key |
-| `HELM_REPO_TOKEN` | GitHub PAT for updating Helm chart repo |
+| `HELM_DEPLOY_KEY` | SSH private key for updating the Helm chart repo |
 
 ---
 
 ## Kyverno Policy
 
-The cluster enforces that **all images must be signed** with the project's Cosign public key. Unsigned images (e.g. `nginx`, `ubuntu`) are rejected at admission time.
+The cluster enforces image integrity on every pod across all namespaces. Images are verified against their respective signing identities — unsigned or unknown images are rejected at admission time.
 
 ```yaml
-# Example: blocked deployment
+# Example: blocked — unknown image
 kubectl run unsigned --image=nginx:latest
-# Error: admission webhook denied - no signatures found
+# Error: admission webhook denied - only signed orima2002 images are allowed
 
-# Example: allowed deployment  
+# Example: allowed — signed image
 kubectl run app --image=orima2002/sample-app:abc1234
 # pod/app created
 ```
+
+### Policy Rules Summary
+
+| Rule | Matches | Verification Method |
+|------|---------|-------------------|
+| `verify-own-images` | `orima2002/*` images, all namespaces | Cosign key (`cosign.pub`) |
+| `verify-argocd-images` | `quay.io/argoproj/*` in `argocd` namespace | Keyless via Sigstore |
+| `verify-kyverno-images` | `ghcr.io/kyverno/*` in `kyverno` namespace | Keyless via Sigstore |
+| `deny-unknown-images` | Any pod outside `kyverno`, `argocd`, `kube-system` | Deny if not `orima2002/*` |
 
 ---
 
