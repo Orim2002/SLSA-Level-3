@@ -129,3 +129,17 @@ jobs:
           COSIGN_PRIVATE_KEY: ${{ secrets.COSIGN_PRIVATE_KEY }}
           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
         run: cosign sign --yes --key env://COSIGN_PRIVATE_KEY ${{ secrets.DOCKERHUB_USERNAME }}/sample-app@${{ needs.docker-build-push-ghcr.outputs.digest }}
+  generate-provenance:
+    name: Generate provenance
+    needs: docker-build-push-ghcr
+    permissions:
+      actions: read
+      id-token: write
+      packages: write
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.0.0
+    with:
+      image: ghcr.io/orim2002/sample-app
+      digest: ${{ needs.docker-build-push-ghcr.outputs.digest }}
+    secrets:
+      registry-username: ${{ github.actor }}
+      registry-password: ${{ secrets.GITHUB_TOKEN }}
