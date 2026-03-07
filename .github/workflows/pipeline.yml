@@ -144,3 +144,22 @@ jobs:
     secrets:
       registry-username: ${{ secrets.DOCKERHUB_USERNAME }}
       registry-password: ${{ secrets.DOCKERHUB_TOKEN }}
+  update-helmchart:
+    name: Update sample app HelmChart
+    runs-on: ubuntu-latest
+    needs:
+      - docker-build-push
+      - generate-provenance
+    steps:
+      - name: Update Helm values.yaml
+        run: |
+          git config --global credential.helper store
+          echo "https://Orim2002:${{secrets.HELM_REPO_TOKEN}}@github.com" > ~/.git-credentials
+          git clone https://github.com/Orim2002/SLSA-Level-3-Sampleapp-HelmChart.git helm-repo
+          cd helm-repo
+          sed -i "s/tag: .*/tag: \"${{ needs.docker-build-push.outputs.tag }}\"/g" values.yaml
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+          git add values.yaml
+          git commit -m "chore: update image tag to ${{ needs.docker-build-push.outputs.tag }}"
+          git push
