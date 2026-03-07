@@ -8,7 +8,10 @@ metadata:
     policies.kyverno.io/severity: medium
     policies.kyverno.io/subject: Pod
     policies.kyverno.io/minversion: 1.7.0
-    policies.kyverno.io/description: Using the Cosign project, OCI images may be signed to ensure supply chain security is maintained. Those signatures can be verified before pulling into a cluster. This policy checks the signature of an image repo called ghcr.io/kyverno/test-verify-image to ensure it has been signed by verifying its signature against the provided public key. This policy serves as an illustration for how to configure a similar rule and will require replacing with your image(s) and keys.
+    policies.kyverno.io/description: >-
+      Enforces that all pods run only signed images. Images from orima2002 
+      must be signed with the project Cosign key. ArgoCD and Kyverno system 
+      images are verified keyless via Sigstore.
 spec:
   validationFailureAction: Enforce
   background: false
@@ -19,15 +22,10 @@ spec:
           - resources:
               kinds:
                 - Pod
-      exclude:
-        any:
-          - resources:
-              namespaces:
-                - argocd
-                - kyverno
       verifyImages:
         - imageReferences:
-            - "**"
+            - "orima2002/*"
+            - "docker.io/orima2002/*"
           mutateDigest: true
           attestors:
             - entries:
@@ -37,3 +35,63 @@ spec:
                       MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEK0D84Cd1nguM6V5PAEYiXqImY/Gd
                       S9MGOR2bXqkD6nvmSwTAgGocZp80KBJdp7aNQD9Uy4wpvDOjA0F0c+yOyA==
                       -----END PUBLIC KEY-----
+
+    - name: verify-argocd-images
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - argocd
+      verifyImages:
+        - imageReferences:
+            - "quay.io/argoproj/*"
+          mutateDigest: true
+          attestors:
+            - entries:
+                - keyless:
+                    subject: "https://github.com/argoproj/argo-cd/*"
+                    issuer: "https://token.actions.githubusercontent.com"
+
+    - name: verify-kyverno-images
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - kyverno
+      verifyImages:
+        - imageReferences:
+            - "ghcr.io/kyverno/*"
+          mutateDigest: true
+          attestors:
+            - entries:
+                - keyless:
+                    subject: "https://github.com/kyverno/kyverno/*"
+                    issuer: "https://token.actions.githubusercontent.com"
+    
+    - name: deny-unknown-images
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kyverno
+                - argocd
+                - kube-system
+      validate:
+        message: "Only signed orima2002 images are allowed in this cluster."
+        deny:
+          conditions:
+            all:
+              - key: "{{ request.object.spec.containers[].image[] }}"
+                operator: AllNotIn
+                value:
+                  - "orima2002/*"
+                  - "docker.io/orima2002/*"
